@@ -4,7 +4,7 @@ const config = require("../config");
 const SYSTEM_INSTRUCTION = `You are a Manim Python code generator that also integrates voice-over narration using OpenAI TTS, and you are going to generate a complete Python code using Manim library. I will provide the full guide below of what you should do.
 
 **INSTRUCTIONS:**
-Your goal is to generate fully functional Manim scripts that creates animations and synchronize them with audio narration using OpenAI TTS. The language used for the narration should ALWAYS be English.
+Your goal is to generate fully functional Manim scripts that creates animations and synchronize them with audio narration using Azure Service. The language used for the narration should MATCH the user prompt, if not sure, use Indonesia. For Indonesian use voice 'id-ID-ArdiNeural', for english use voice 'en-US-AriaNeural'
 
 Only output fully working Python code. If the request is unclear, infer the best animation and narration.
 
@@ -13,14 +13,14 @@ Before starting, you should read and really understand the "SHORT DOCUMENTATION"
 **GUIDELINES & NOTES:**
 Follow these strict guidelines:
 1. Ensure the generated code is free of syntax errors and compatible with Manim.
-2. Always include the required imports (\`from manim import *\`, \`from manim_voiceover import VoiceoverScene\`, \`from manim_voiceover.services.openai import OpenAIService\`).
+2. Always include the required imports (\`from manim import *\`, \`from manim_voiceover import VoiceoverScene\`, \`from manim_voiceover.services.azure import AzureService\`).
 3. Use \`class SceneName(Scene)\` and define a \`construct(self)\` method.
-4. The language used for the narration should ALWAYS be English.
+4. The language used for the narration should MATCH the prompt language, if not sure use Indonesia.
 5. Use the \`ManimVoiceover\` extension to integrate voice-over support.
-6. Generate and save the narration audio using OpenAI.
+6. Generate and save the narration audio using Azure Service.
 7. Ensure the narration is synchronized with animations (\`with self.voiceover() as narrator:\`).
 8. If the request involves explanations (e.g., describing a formula), generate a suitable script for the voice-over.
-9. Include error handling for OpenAI audio generation to ensure smooth execution.
+9. Include error handling for Azure Service audio generation to ensure smooth execution.
 10. Use reasonable defaults if the user input is ambiguous (e.g. default to English, default common animation durations, etc.).
 11. Don't use any type of files in your animation (e.g. using .png, .svg, etc.).
 12. Incorporate basic colors like WHITE, BLUE, YELLOW,  GREEN, or RED in your animations.
@@ -224,17 +224,18 @@ Follow these strict guidelines:
 \`\`\`python
 from manim import *
 from manim_voiceover import VoiceoverScene
-from manim_voiceover.services.openai import OpenAIService
+from manim_voiceover.services.azure import AzureService
 from gtts import gTTS
 import os
 
 class TriangleExplanation(VoiceoverScene):
     def construct(self):
         # Set up the voiceover service
-        self.set_speech_service(OpenAIService(
-                model="tts-1", 
-                voice="alloy",
-                api_key=os.getenv("OPENAI_API_KEY")
+        self.set_speech_service(AzureService(
+                voice='id-ID-ArdiNeural',
+                style=None,
+                output_format='Audio48Khz192KBitRateMonoMp3',
+		        prosody=None
             ))
 
         # Create a red triangle
@@ -263,25 +264,25 @@ if __name__ == "__main__":
  * @returns {Promise<string>} - Generated Python code
  */
 async function generateManimCode(
-    prompt,
-    imageBase64 = null,
-    errorMessage = "",
-    retryCount = 0
+	prompt,
+	imageBase64 = null,
+	errorMessage = "",
+	retryCount = 0
 ) {
-    const openai = new OpenAI({
-        apiKey: config.openai.apiKey,
-    });
+	const openai = new OpenAI({
+		apiKey: config.openai.apiKey,
+	});
 
-    let userPrompt = `Generate a Manim Python script that visualizes this user's prompt:
+	let userPrompt = `Generate a Manim Python script that visualizes this user's prompt:
 	${prompt}. 
 	
 	The script should be error-free and renders a video. The language used for the narration should ALWAYS be English.
 	
 	IMPORTANT NOTE: Name the scene class "ManimScene" exactly (not any other name).`;
 
-    // If this is a retry, include the error message
-    if (retryCount > 0) {
-        userPrompt = `The previous Manim code had errors. Please fix and generate a new script that visualizes this user's prompt: 
+	// If this is a retry, include the error message
+	if (retryCount > 0) {
+		userPrompt = `The previous Manim code had errors. Please fix and generate a new script that visualizes this user's prompt: 
 		${prompt}.
 
         The error was: 
@@ -290,68 +291,68 @@ async function generateManimCode(
         The script should be error-free and renders a video. The language used for the narration should ALWAYS be English.
         
         IMPORTANT NOTE: Name the scene class "ManimScene" exactly (not any other name).`;
-    }
+	}
 
-    try {
-        const messages = [
-            {
-                role: "system",
-                content: SYSTEM_INSTRUCTION,
-            },
-        ];
+	try {
+		const messages = [
+			{
+				role: "system",
+				content: SYSTEM_INSTRUCTION,
+			},
+		];
 
-        // Add the image if provided
-        if (imageBase64) {
-            messages.push({
-                role: "user",
-                content: [
-                    {
-                        type: "text",
-                        text: `Generate a Manim Python script based on this image and the prompt: ${prompt}. Name the scene class "ManimScene" exactly.`,
-                    },
-                    {
-                        type: "image_url",
-                        image_url: {
-                            url: `data:image/jpeg;base64,${imageBase64}`,
-                        },
-                    },
-                ],
-            });
-        } else {
-            messages.push({
-                role: "user",
-                content: userPrompt,
-            });
-        }
+		// Add the image if provided
+		if (imageBase64) {
+			messages.push({
+				role: "user",
+				content: [
+					{
+						type: "text",
+						text: `Generate a Manim Python script based on this image and the prompt: ${prompt}. Name the scene class "ManimScene" exactly.`,
+					},
+					{
+						type: "image_url",
+						image_url: {
+							url: `data:image/jpeg;base64,${imageBase64}`,
+						},
+					},
+				],
+			});
+		} else {
+			messages.push({
+				role: "user",
+				content: userPrompt,
+			});
+		}
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-4.1",
-            messages,
-            temperature: 0.3, // Lower for more deterministic code generation
-            max_tokens: 5000, // Increased to allow for more complex scripts with voiceovers
-            top_p: 0.95, // Slightly reduced to focus on more probable tokens
-            frequency_penalty: 0.1, // Light penalty to reduce repetitive patterns
-            presence_penalty: 0.1, // Light penalty to encourage diversity in the code
-        });
+		const response = await openai.chat.completions.create({
+			model: "gpt-4.1",
+			messages,
+			temperature: 0.3, // Lower for more deterministic code generation
+			max_tokens: 5000, // Increased to allow for more complex scripts with voiceovers
+			top_p: 0.95, // Slightly reduced to focus on more probable tokens
+			frequency_penalty: 0.1, // Light penalty to reduce repetitive patterns
+			presence_penalty: 0.1, // Light penalty to encourage diversity in the code
+		});
 
-        let pythonCode = response.choices[0].message.content;
+		let pythonCode = response.choices[0].message.content;
 
-        // Clean up the response to remove markdown code block markers if present
-        pythonCode = pythonCode.replace(/```python\n/g, "").replace(/```/g, "");
+		// Clean up the response to remove markdown code block markers if present
+		pythonCode = pythonCode.replace(/```python\n/g, "").replace(/```/g, "");
 
-        // Replace any scene class name with ManimScene to ensure consistency
-        pythonCode = pythonCode.replace(
-            /class\s+\w+\s*\(\s*VoiceoverScene\s*\)/g,
-            "class ManimScene(VoiceoverScene)"
-        );
+		// Replace any scene class name with ManimScene to ensure consistency
+		pythonCode = pythonCode.replace(
+			/class\s+\w+\s*\(\s*VoiceoverScene\s*\)/g,
+			"class ManimScene(VoiceoverScene)"
+		);
 
-        return pythonCode;
-    } catch (error) {
-        console.error("Error calling OpenAI:", error);
-        throw new Error(`Failed to generate Manim code: ${error.message}`);
-    }
+		return pythonCode;
+	} catch (error) {
+		console.error("Error calling OpenAI:", error);
+		throw new Error(`Failed to generate Manim code: ${error.message}`);
+	}
 }
 
 module.exports = {
-    generateManimCode,
+	generateManimCode,
 };

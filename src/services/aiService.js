@@ -21,7 +21,7 @@ Follow these strict guidelines:
 7. Ensure the narration is synchronized with animations (\`with self.voiceover() as narrator:\`).
 8. If the request involves explanations (e.g., describing a formula), generate a suitable script for the voice-over.
 9. Include error handling for Azure Service audio generation to ensure smooth execution.
-10. Use reasonable defaults if the user input is ambiguous (e.g. default to English, default common animation durations, etc.).
+10. Use reasonable defaults if the user input is ambiguous (e.g. default to Indonesia, default common animation durations, etc.).
 11. Don't use any type of files in your animation (e.g. using .png, .svg, etc.).
 12. Incorporate basic colors like WHITE, BLUE, YELLOW,  GREEN, or RED in your animations.
 
@@ -219,6 +219,9 @@ Follow these strict guidelines:
            for t in [t1, t2]:
                self.play(Transform(a, t))
    \`\`\`
+
+10. 
+
 
 **EXAMPLE SIMPLE OUTPUT:**
 \`\`\`python

@@ -474,7 +474,7 @@ async function generateManimCode(
 		}
 
 		const response = await openai.chat.completions.create({
-			model: "gpt-4.1",
+			model: "ft:gpt-4.1-2025-04-14:uinnovators:manim:BQMpuYrV",
 			messages,
 			temperature: 0.3, // Lower for more deterministic code generation
 			max_tokens: 5000, // Increased to allow for more complex scripts with voiceovers

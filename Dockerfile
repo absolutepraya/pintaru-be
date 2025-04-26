@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install manim-voiceover with its dependencies
-RUN pip install "manim-voiceover[openai]"
+RUN pip install "manim-voiceover[azure]"
 RUN pip install "manim-voiceover[transcribe]"
 
 # First, pin NumPy to 1.x series due to compatibility issues with torchaudio

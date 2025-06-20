@@ -1,31 +1,50 @@
-# Jawab.in Backend Service
+# Pintaru Backend Service
 
-A backend service for generating mathematical animation videos using Manim and AI.
+An AI-powered backend service for generating educational mathematical animation videos using Manim. This service takes a user prompt, intelligently analyzes it to create a title and subject, and then generates a complete Manim Python script with automated voice-over to produce an engaging animated video.
 
 ## Features
 
--   REST API for video generation requests
--   AI-powered Manim code generation with Google Gemini and OpenAI
--   Job queue processing with Bull and Redis
--   Video storage with Supabase
--   Docker containerization for development and production
+- **REST API**: Asynchronous endpoints for generating videos and checking their status.
+- **Dual AI Model Architecture**:
+  - **Google Gemini**: Used for intelligent prompt analysis to automatically generate a video title and categorize the subject.
+  - **OpenAI**: Powers the generation of complex Manim animation scripts in Python.
+- **Automated Voice-over**: Integrates with Azure Cognitive Services to generate high-quality text-to-speech narration synchronized with the animation.
+- **Job Queue**: Uses Bull and Redis for robust, background processing of video generation jobs.
+- **Scalable Storage**: Leverages Supabase for storing video metadata and the final video files.
+- **Flexible Input**: Accepts both `application/json` and `multipart/form-data` to handle requests with or without image inputs.
+- **Containerized**: Fully containerized with Docker for consistent development, testing, and production environments.
+- **Deployment-Ready**: Includes configurations for easy deployment to platforms like Heroku.
+
+## How It Works
+
+1.  A user sends a `POST` request to `/api/video/generate` with a prompt (e.g., "Explain the Pythagorean theorem").
+2.  **Gemini API** analyzes the prompt to generate a title and subject (e.g., `title: "Understanding Pythagoras"`, `subject: "Math"`).
+3.  A new job is added to the **Redis queue** via Bull.
+4.  A worker process picks up the job and calls the **OpenAI API** to generate a Manim Python script based on the prompt. The script includes voice-over commands using Azure TTS.
+5.  The Manim script is executed in a sandboxed environment to render the video.
+6.  The final video is uploaded to **Supabase Storage**.
+7.  The video's metadata and URL are updated in the Supabase database.
+8.  The user can poll the `/api/video/status/:jobId` endpoint to get the final video URL.
 
 ## Prerequisites
 
--   Docker and Docker Compose
--   Supabase account
--   OpenAI API key
--   Google Gemini API key
+- Docker and Docker Compose
+- Supabase Account & Project
+- OpenAI API Key
+- Google Gemini API Key
+- Azure Account with Speech Service
 
 ## Environment Setup
 
-1. Copy the `.env.example` file to `.env`:
+1.  Clone the repository and create a `.env` file from the example:
 
-    ```
+    ```bash
+    git clone https://github.com/your-username/pintaru-be.git
+    cd pintaru-be
     cp .env.example .env
     ```
 
-2. Fill in your API keys and configuration values in the `.env` file:
+2.  Fill in your API keys and configuration in the `.env` file:
 
     ```
     # API Keys
@@ -33,13 +52,17 @@ A backend service for generating mathematical animation videos using Manim and A
     OPENAI_API_KEY=your_openai_api_key_here
 
     # Supabase Configuration
-    SUPABASE_URL=your_supabase_url_here
+    SUPABASE_URL=your_supabase_project_url_here
     SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
     # Redis Configuration
     REDIS_HOST=redis
     REDIS_PORT=6379
-    REDIS_PASSWORD=  # Optional, leave empty if no password
+    REDIS_PASSWORD=  # Optional
+
+    # Azure Cognitive Services for Voice-over
+    AZURE_SUBSCRIPTION_KEY=your_azure_subscription_key_here
+    AZURE_SERVICE_REGION=your_azure_service_region_here
 
     # Server Configuration
     PORT=3000
@@ -48,97 +71,106 @@ A backend service for generating mathematical animation videos using Manim and A
 
 ## Development
 
-### Starting the Development Environment
-
-Start the development environment with Docker Compose:
+Start the development environment using Docker Compose:
 
 ```bash
-docker-compose up
+docker-compose up --build
 ```
 
-This will:
-
--   Start a Redis instance
--   Build and start the Manim video service
--   Mount your local files for real-time development
-
-The server will be accessible at http://localhost:3000 with automatic reloading enabled.
+The service will be available at `http://localhost:3000`. The code is hot-reloaded on changes.
 
 ## Production
 
-### Starting the Production Environment
-
-For production deployment, use the production Docker Compose file:
+To run in production mode, use the production-specific Docker Compose file:
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-This uses the production-optimized Dockerfile and configurations.
-
-### Deploying to Heroku
-
-The project includes Heroku deployment configuration:
-
-```bash
-# Login to Heroku
-heroku login
-
-# Create a new Heroku app if needed
-heroku create your-app-name
-
-# Set the stack to container
-heroku stack:set container
-
-# Push to Heroku
-git push heroku main
-```
+This uses optimized settings for a production environment.
 
 ## API Endpoints
 
--   `GET /health` - Health check endpoint
--   `POST /api/video/generate` - Create a new video generation request with optional image input
--   `GET /api/video/status/:jobId` - Get job status by ID
--   `GET /api/video/jobs` - List all jobs
+### `GET /health`
 
-### API Usage Examples
+Health check endpoint to verify that the server is running.
 
-#### Generate a video with text prompt only (JSON format)
+- **Response `200 OK`**
+  ```json
+  {
+    "status": "OK",
+    "message": "Server is running"
+  }
+  ```
 
-```json
-POST /api/video/generate
-Content-Type: application/json
+### `POST /api/video/generate`
 
-{
-  "prompt": "Show me how to calculate the area of a circle",
-  "user_id": "user123"
-}
-```
+Creates a new video generation job. Accepts `application/json` or `multipart/form-data`.
 
-#### Generate a video with text prompt and image (JSON format)
+- **Request Body (`application/json`)**
 
-```json
-POST /api/video/generate
-Content-Type: application/json
+  ```json
+  {
+    "prompt": "Show me how to calculate the area of a circle",
+    "user_id": "user123",
+    "image_data": "base64_encoded_image_data_here" // Optional
+  }
+  ```
 
-{
-  "prompt": "Explain the mathematical concept shown in this image",
-  "user_id": "user123",
-  "image_data": "base64_encoded_image_data_here"
-}
-```
+- **Request Body (`multipart/form-data`)**
 
-#### Generate a video with text prompt and image (multipart/form-data format)
+  - `prompt`: "Explain the concept in the image"
+  - `user_id`: "user123"
+  - `image`: [binary image file]
 
-```
-POST /api/video/generate
-Content-Type: multipart/form-data
+- **Response `202 Accepted`**
+  ```json
+  {
+    "jobId": "12345",
+    "requestId": "some-unique-request-id",
+    "status": "queued",
+    "message": "Video generation job queued successfully",
+    "title": "Calculating the Area of a Circle",
+    "subject": "Math",
+    "has_image": true
+  }
+  ```
 
-Form fields:
-- prompt: "Explain the mathematical concept shown in this image"
-- user_id: "user123"
-- image: [binary image file]
-```
+### `GET /api/video/status/:jobId`
+
+Retrieves the status of a specific video generation job.
+
+- **Response (Job Queued)**
+  ```json
+  { "status": "queued" }
+  ```
+- **Response (Job Completed)**
+  ```json
+  {
+    "status": "completed",
+    "videoUrl": "https://your-supabase-url/path/to/video.mp4"
+  }
+  ```
+
+### `GET /api/video/jobs`
+
+Lists all jobs in the queue.
+
+## Project Structure
+
+    .
+    ├── src/
+    │   ├── app.js             # Express app configuration and middleware
+    │   ├── config/            # Configuration loader (from .env)
+    │   ├── controllers/       # Route handlers and business logic
+    │   ├── routes/            # API route definitions
+    │   ├── services/          # External service integrations (AI, DB, Queue)
+    │   └── server.js          # Server entry point
+    ├── docker-compose.yml     # Docker setup for development
+    ├── docker-compose.prod.yml # Docker setup for production
+    ├── Dockerfile             # Dockerfile for development
+    ├── Dockerfile.prod        # Dockerfile for production
+    └── package.json           # Project dependencies
 
 ## License
 
